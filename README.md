@@ -13,6 +13,7 @@ Four ways to encrypt data
 
 ## Bouncy Castle
 ```
+// Bouncy Castle library added to POM, build will include the Bouncy Castle library
 // Add Bouncy Castle as the Java Security Provider
 Security.addProvider(new BouncyCastleProvider());
 CertificateFactory certFactory = CertificateFactory.getInstance("X.509", "BC");
@@ -47,7 +48,78 @@ return encryptedData;
 ```
 
 ## Using CADP for Java
+```
+// CADP library added to POM, build will include the CADP library
+NAESession session = naeSessionService.getSession();
+// This would require the developer to have an understanding of the Crypto algo i.e. AES/CBC/PKCS5Padding in this case
+// Any update to algo will require the code to be rebuilt
+String algo = "AES/CBC/PKCS5Padding";
+String cipherText = "";
+try {
+    // Developer should have deeper understanding of crypto like what IV is and what should be the value
+    IvParameterSpec ivSpec = new IvParameterSpec("1234567812345678".getBytes());
+    
+    // Gets public key from CipherTrust Manager to encrypt data (just a key handle , key data does not leave the Key Manager)
+    NAEKey key = NAEKey.getSecretKey("KeyName", session);
+    
+    // Creates a encryption cipher
+    Cipher encryptCipher = Cipher.getInstance(algo, "IngrianProvider");
+    
+    // Initializes the cipher to encrypt the data
+    encryptCipher.init(Cipher.ENCRYPT_MODE, key, ivSpec);
+    
+    //Encrypt data
+    cipherText = encryptCipher.doFinal(data.getBytes()).toString();
+} catch(Exception ex) {
+    ex.printStackTrace();
+}
+return cipherText;
+```
 
 ## Using CADP Web Service
+```
+// No additional library needs to be bundled into the code
+RestTemplate restTemplate = new RestTemplate();
+// Prepare headers
+HttpHeaders headers = new HttpHeaders();
+headers.set("Content-Type", "application/json");
+String url = "http://<CADP_WS_IP>:<CADP_WS_PORT>/protectappws/services/rest/encrypt";
+
+EncryptRequest request = new EncryptRequest();
+EncryptRequest.Encrypt encrypt = new EncryptRequest.Encrypt();
+encrypt.setUsername("<CM_Username>");
+encrypt.setPassword("<CM_Password>");
+encrypt.setKeyname("KeyName");
+// This would require the developer to have an understanding of the Crypto concepts like IV and algo i.e. AES/CBC/PKCS5Padding in this case
+// Any update to algo will require the code to be rebuilt
+encrypt.setKeyiv("12345678123456781234567812345678");
+encrypt.setTransformation("AES/CBC/PKCS5Padding");
+
+encrypt.setPlaintext("4592-3522-9633-3835");
+request.setEncrypt(encrypt);
+
+HttpEntity<EncryptRequest> entity = new HttpEntity<>(request, headers);
+ResponseEntity<EncryptResponse> response = restTemplate.exchange(url, HttpMethod.POST, entity, EncryptResponse.class);
+return response.getBody().getEncryptResponse().getCipherText();
+```
 
 ## Using CRDP
+```
+// No additional library needs to be bundled into the code
+// No knowledge needed for IV, algo, key creation and management
+// Just a simple API call
+
+RestTemplate restTemplate = new RestTemplate();
+// Prepare headers
+HttpHeaders headers = new HttpHeaders();
+headers.set("Content-Type", "application/json");
+String url = "http://<CRDP_IP>:<CRDP_PORT>/v1/protect";
+
+ProtectRequest request = new ProtectRequest();
+request.setData(data);
+request.setPolicyName("demo");
+
+HttpEntity<ProtectRequest> entity = new HttpEntity<>(request, headers);
+ResponseEntity<ProtectResponse> response = restTemplate.exchange(url, HttpMethod.POST, entity, ProtectResponse.class);
+return response.getBody().getCipherText();
+```
